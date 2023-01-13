@@ -1,0 +1,41 @@
+@name Dobs_Jireh_Steering3_3
+@inputs Pod:wirelink [Chassis Chair]:entity LeftParent:entity RightParent:entity
+@outputs Theta ThetaIn ThetaOut
+@persist E:entity TurnLimit TurnSpeedMul TopSpeedTurnLimit Ang W L
+@trigger none
+@model models/sprops/rectangles_thin/size_2/rect_12x12x1_5.mdl
+#First, wire everything together. Then adv ballsocket your wheels to the plate.
+if(first() | dupefinished()){
+    TurnLimit=30 #degree of turning angle
+    TurnSpeedMul=5 #Speed of turn
+    E=entity()
+    Ang=0
+ 
+    W = 81.5
+    L = 112
+}
+interval(50)
+ 
+A = Pod["A",number]
+D = Pod["D",number]
+ 
+AngLimit=round(TurnLimit/TurnSpeedMul)
+if (A|D){
+    Ang=clamp(Ang+(A-D),-AngLimit,AngLimit)
+}
+elseif (!A&!D&abs(Ang)>0){
+    Ang-=abs(Ang)/Ang
+}
+ 
+Theta = Ang * TurnSpeedMul
+ThetaIn = atan(2*L*sin(Theta)/(2*L*cos(Theta)-W*sin(Theta)))
+ThetaOut = atan(2*L*sin(Theta)/(2*L*cos(Theta)+W*sin(Theta)))
+ 
+LeftParent:setAng(Chassis:toWorld(ang(0,ThetaIn,0)))
+RightParent:setAng(Chassis:toWorld(ang(0,ThetaOut,0)))
+E:setAng(Chassis:toWorld(ang(0,Theta,0)))
+ 
+ 
+if(!E:isPlayerHolding()){E:propFreeze(1)}else{E:propFreeze(0)} #Freezes prop 
+if(!LeftParent:isPlayerHolding()){LeftParent:propFreeze(1)}else{LeftParent:propFreeze(0)}
+if(!RightParent:isPlayerHolding()){RightParent:propFreeze(1)}else{RightParent:propFreeze(0)}
