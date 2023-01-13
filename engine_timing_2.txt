@@ -1,0 +1,73 @@
+@name Prop Engine Experiment
+@inputs [Crank Base]:entity Pistons:array Throttle Active
+@outputs CrankAng RPM Forces:array Test:angle
+@persist TwoStroke MaxPower [Timings TqCurve]:array Direction RevLimiter
+
+if(first() | dupefinished()) {
+    TwoStroke = 0 #1 makes pistons only fire when descending, 0 makes them like old prop engines (forced upwards too)
+    MaxPower = 2500
+    Direction = 1 #1 for forwards, -1 for backwards
+    RevLimiter = 1200
+    Timings = array(180, 180, 60, 60, -60, -60) #Crank angle of each piston at TDC, in the order they are linked to the entity marker
+    TqCurve = array(0.3, 0.6, 0.85, 1, 0.7) #Curve the torque follows as the RPM gets closer to the redline
+
+    holoCreate(1)
+    holoPos(1, Crank:pos() + vec(0, 0, 10))
+    holoParent(1, Base)
+    holoScale(1, vec(0.1))
+
+    foreach(K, V:entity = Pistons) {
+        V:propDrag(0)
+    }
+
+    function number catRomInterpolate(Points:array, Pos) {
+        if(Points:count() < 4) {
+            error("Must have at least 4 points in array")
+        }
+
+        local CurrentPoint = floor(Pos * (Points:count() - 1) + 1)
+
+        local Mu = 0
+        if(Pos <= 0) {
+            Mu = 0
+        } elseif(Pos >= 1) {
+            Mu = 1
+        } else {
+            Mu = Pos * (Points:count() - 1)
+            Mu = Mu % 1
+        }
+
+        local P0 = Points[clamp(CurrentPoint - 1, 1, Points:count() - 2), number]
+        local P1 = Points[clamp(CurrentPoint, 1, Points:count() - 1), number]
+        local P2 = Points[clamp(CurrentPoint + 1, 2, Points:count()), number]
+        local P3 = Points[clamp(CurrentPoint + 2, 3, Points:count()), number]
+
+        return 0.5 * ((2 * P1) +
+            (P2 - P0) * Mu +
+            (2 * P0 - 5 * P1 + 4 * P2 - P3) * Mu ^ 2 +
+            (3 * P1 - P0 - 3 * P2 + P3) * Mu ^ 3)
+    }
+
+    runOnTick(1)
+}
+
+CrankAng = Crank:bearing(holoEntity(1):pos()) * Direction
+RPM = abs(Crank:angVel():yaw() / 6)
+
+if(Active) {
+    foreach(K, Offset:number = Timings) {
+        Forces[K, number] = sin(CrankAng - Offset * Direction)
+    }
+
+    TqCurveMul = catRomInterpolate(TqCurve, RPM / RevLimiter)
+
+    if(Throttle & RPM < RevLimiter) {
+        foreach(K, V:entity = Pistons) {
+            local ForceVector = V:up() * Forces[K, number] * Throttle * MaxPower * TqCurveMul
+            V:applyForce(-ForceVector)
+            Base:applyOffsetForce(ForceVector, V:pos())
+        }
+    }
+} elseif(Crank:angVelVector() != vec(0)) {
+    Crank:applyAngForce(clamp(-Crank:angVel() * 50, -10000, 10000))
+}
