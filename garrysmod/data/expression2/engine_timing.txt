@@ -1,0 +1,23 @@
+@name Engine Timing
+@inputs Crank:entity Block:entity W S Active
+@outputs P1 P2 P3 P4 P5 P6 P7 P8 Rpm Bearing
+@persist Power1 PistonCount Power Off
+@trigger 
+interval(1)
+if(first()||dupefinished()){
+    Power=600
+    PistonCount=4  #change to how many pistons timings there are
+    
+    Off=-0
+    
+    }
+Bearing=Crank:bearing(Block:pos()+vec(-20,0,35):rotate(Block:angles()))+180
+Power1=Power*(W-S)
+Rpm= round(abs(Crank:angVel():yaw()/360*60))
+if(Active){if(~Active){Block:soundPlay(0,0,"acf_extra/vehiclefx/engines/v8/GTO_onmid.wav")}} else {soundStop(0)}
+soundPitch(0,Rpm/9)
+
+P1=sin(Off+Bearing+((360/PistonCount)*1))*Power1
+P2=sin(Off+Bearing+((360/PistonCount)*2))*Power1
+P3=sin(Off+Bearing+((360/PistonCount)*3))*Power1
+P4=sin(Off+Bearing+((360/PistonCount)*4))*Power1
